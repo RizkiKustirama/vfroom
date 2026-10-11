@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import '../core/constants/app_colors.dart';
+import '../core/constants/api_constants.dart';
+import '../repositories/api_service.dart';
 import '../providers/avatar_provider.dart';
 import '../providers/wardrobe_provider.dart';
 import '../widgets/prompt_input_bar.dart';
@@ -66,12 +68,65 @@ class _StylistScreenState extends ConsumerState<StylistScreen> {
     try {
       final XFile? file = await _picker.pickImage(source: ImageSource.gallery);
       if (file != null) {
-        final Uint8List bytes = await file.readAsBytes();
+        final Uint8List rawBytes = await file.readAsBytes();
+
+        // Tampilkan modal progress background removal
+        if (!mounted) return;
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (ctx) => const Dialog(
+            backgroundColor: Colors.white,
+            child: Padding(
+              padding: EdgeInsets.all(22),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(color: AppColors.primaryOrange),
+                  SizedBox(width: 18),
+                  Expanded(
+                    child: Text(
+                      'AI sedang menghapus background & mengisolasi baju... ✨',
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+
+        Uint8List? cleanBytes;
+        String? cleanUrl;
+
+        try {
+          // Panggil API Backend FastAPI untuk isolasi baju presisi via RMBG
+          final res = await apiService.uploadGarment(
+            bytes: rawBytes,
+            fileName: file.name,
+            userId: 'user-alex-01',
+            category_id: 2, // Atasan
+            name: file.name.replaceAll(RegExp(r'\.[a-zA-Z]+$'), ''),
+          );
+          cleanUrl = res['image_clean_url'] as String?;
+          if (cleanUrl != null) {
+            cleanBytes = await apiService.downloadBytes(cleanUrl);
+          }
+        } catch (apiErr) {
+          debugPrint('Backend upload error / offline: $apiErr');
+        }
+
+        if (mounted) {
+          Navigator.pop(context); // Tutup dialog loading
+        }
+
         final newGarment = CustomGarment(
           id: 'custom-${DateTime.now().millisecondsSinceEpoch}',
           name: file.name.replaceAll(RegExp(r'\.[a-zA-Z]+$'), ''),
           category: 'Atasan',
-          imageBytes: bytes,
+          imageBytes: cleanBytes ?? rawBytes,
+          cleanImageUrl: cleanUrl,
+          assetPath: cleanBytes == null ? 'assets/images/garment1.png' : null,
         );
 
         ref.read(wardrobeProvider.notifier).addCustomGarment(newGarment);
@@ -80,7 +135,9 @@ class _StylistScreenState extends ConsumerState<StylistScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               backgroundColor: AppColors.primaryOrange,
-              content: Text('Baju "${file.name}" berhasil diunggah & dipasangkan ke model! ✨'),
+              content: Text(cleanBytes != null
+                  ? 'AI berhasil memotong & memasang baju "${file.name}" pada model! ✨'
+                  : 'Baju "${file.name}" berhasil diunggah & dipasangkan ke model! ✨'),
             ),
           );
         }
@@ -331,14 +388,14 @@ class _StylistScreenState extends ConsumerState<StylistScreen> {
               ),
             ),
 
-            // Center Viewport: Clean, Crisp Avatar Model (No 360 distortion)
+            // Center Viewport: Clean, Crisp Avatar Model & Accurate Garment Fitting
             Expanded(
               child: Center(
                 child: Container(
                   margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.6),
+                    color: Colors.white.withOpacity(0.65),
                     borderRadius: BorderRadius.circular(28),
                     boxShadow: [
                       BoxShadow(
@@ -386,30 +443,62 @@ class _StylistScreenState extends ConsumerState<StylistScreen> {
                               ),
                       ),
 
-                      // Layered Worn Garments (Z-Index Compositing Engine)
+                      // Layered Worn Garments (Z-Index Compositing Engine: Fitted to Torso)
                       ...wardrobe.wornGarments.map((g) {
+                        final isBottom = g.category == 'Bawahan';
+                        final isFootwear = g.category == 'Sepatu';
+
+                        double topPos = 58; // Upper chest for tops and jackets
+                        double garmentHeight = 125;
+                        double garmentWidth = 145;
+
+                        if (isBottom) {
+                          topPos = 130;
+                          garmentHeight = 110;
+                          garmentWidth = 120;
+                        } else if (isFootwear) {
+                          topPos = 220;
+                          garmentHeight = 45;
+                          garmentWidth = 100;
+                        }
+
+                        Widget garmentImg;
+                        if (g.imageBytes != null) {
+                          garmentImg = Image.memory(
+                            g.imageBytes!,
+                            height: garmentHeight,
+                            width: garmentWidth,
+                            fit: BoxFit.contain,
+                          );
+                        } else if (g.cleanImageUrl != null) {
+                          garmentImg = Image.network(
+                            '${ApiConstants.baseUrl}${g.cleanImageUrl}',
+                            height: garmentHeight,
+                            width: garmentWidth,
+                            fit: BoxFit.contain,
+                          );
+                        } else {
+                          garmentImg = Image.asset(
+                            g.assetPath ?? 'assets/images/garment1.png',
+                            height: garmentHeight,
+                            width: garmentWidth,
+                            color: g.tintColor != null ? g.tintColor!.withOpacity(0.4) : null,
+                            colorBlendMode: g.tintColor != null ? BlendMode.srcATop : null,
+                            fit: BoxFit.contain,
+                            errorBuilder: (_, __, ___) => Icon(
+                              Icons.dry_cleaning_rounded,
+                              size: 90,
+                              color: g.tintColor ?? AppColors.primaryOrange,
+                            ),
+                          );
+                        }
+
                         return Positioned(
-                          top: 45,
-                          child: Container(
-                            padding: const EdgeInsets.all(4),
-                            child: g.imageBytes != null
-                                ? Image.memory(
-                                    g.imageBytes!,
-                                    height: 140,
-                                    fit: BoxFit.contain,
-                                  )
-                                : Image.asset(
-                                    g.assetPath ?? 'assets/images/garment1.png',
-                                    height: 140,
-                                    color: g.tintColor != null ? g.tintColor!.withOpacity(0.4) : null,
-                                    colorBlendMode: g.tintColor != null ? BlendMode.srcATop : null,
-                                    fit: BoxFit.contain,
-                                    errorBuilder: (_, __, ___) => Icon(
-                                      Icons.dry_cleaning_rounded,
-                                      size: 100,
-                                      color: g.tintColor ?? AppColors.primaryOrange,
-                                    ),
-                                  ),
+                          top: topPos,
+                          child: SizedBox(
+                            height: garmentHeight,
+                            width: garmentWidth,
+                            child: garmentImg,
                           ),
                         );
                       }).toList(),

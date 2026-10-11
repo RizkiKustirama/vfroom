@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import '../core/constants/api_constants.dart';
 import '../models/garment_item.dart';
@@ -16,6 +17,36 @@ class ApiService {
                 headers: {'Content-Type': 'application/json'},
               ),
             );
+
+  Future<Map<String, dynamic>> uploadGarment({
+    required Uint8List bytes,
+    required String fileName,
+    required String userId,
+    required int categoryId,
+    required String name,
+  }) async {
+    final formData = FormData.fromMap({
+      'file': MultipartFile.fromBytes(bytes, filename: fileName),
+      'user_id': userId,
+      'category_id': categoryId,
+      'name': name,
+    });
+
+    final response = await _dio.post(
+      ApiConstants.garmentsUpload,
+      data: formData,
+    );
+    return response.data as Map<String, dynamic>;
+  }
+
+  Future<Uint8List> downloadBytes(String urlPath) async {
+    final fullUrl = urlPath.startsWith('http') ? urlPath : '${ApiConstants.baseUrl}$urlPath';
+    final response = await _dio.get<List<int>>(
+      fullUrl,
+      options: Options(responseType: ResponseType.bytes),
+    );
+    return Uint8List.fromList(response.data!);
+  }
 
   Future<List<GarmentItem>> fetchGarments({int? categoryId}) async {
     final response = await _dio.get(

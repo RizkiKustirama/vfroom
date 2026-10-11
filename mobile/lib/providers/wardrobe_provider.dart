@@ -8,6 +8,7 @@ class CustomGarment {
   final String category;
   final Uint8List? imageBytes;
   final String? assetPath;
+  final String? cleanImageUrl;
   final Color? tintColor;
 
   CustomGarment({
@@ -16,6 +17,7 @@ class CustomGarment {
     required this.category,
     this.imageBytes,
     this.assetPath,
+    this.cleanImageUrl,
     this.tintColor,
   });
 }
