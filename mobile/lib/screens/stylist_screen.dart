@@ -105,7 +105,7 @@ class _StylistScreenState extends ConsumerState<StylistScreen> {
             bytes: rawBytes,
             fileName: file.name,
             userId: 'user-alex-01',
-            category_id: 2, // Atasan
+            categoryId: 2, // Atasan
             name: file.name.replaceAll(RegExp(r'\.[a-zA-Z]+$'), ''),
           );
           cleanUrl = res['image_clean_url'] as String?;
