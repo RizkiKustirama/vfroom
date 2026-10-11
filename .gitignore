@@ -36,6 +36,11 @@ venv.bak/
 .env.local
 *.env
 
+# SQLite local databases
+*.db
+*.sqlite
+*.sqlite3
+
 # IDE / Editor
 .vscode/
 .idea/
