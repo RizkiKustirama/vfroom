@@ -3,12 +3,16 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from app.config import settings
 
-# Handle SQLite fallback if PostgreSQL is not active locally
+# Handle PostgreSQL with seamless fallback to SQLite for local development
 db_url = settings.DATABASE_URL
-if db_url.startswith("sqlite"):
-    engine = create_engine(db_url, connect_args={"check_same_thread": False})
-else:
-    engine = create_engine(db_url, pool_pre_ping=True)
+try:
+    if db_url.startswith("sqlite"):
+        engine = create_engine(db_url, connect_args={"check_same_thread": False})
+    else:
+        engine = create_engine(db_url, pool_pre_ping=True)
+except Exception:
+    fallback_url = "sqlite:///./vfroom_local.db"
+    engine = create_engine(fallback_url, connect_args={"check_same_thread": False})
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
