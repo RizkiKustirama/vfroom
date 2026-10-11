@@ -1,6 +1,13 @@
+import 'package:flutter/foundation.dart';
+
 class ApiConstants {
-  // Ganti dengan IP lokal PC saat testing di HP fisik via WiFi (misal: http://192.168.1.x:8000)
-  static const String baseUrl = 'http://10.0.2.2:8000'; // Default Android Emulator host IP
+  // Otomatis deteksi: localhost untuk Chrome (Web), 10.0.2.2 untuk Android Emulator
+  static String get baseUrl {
+    if (kIsWeb) {
+      return 'http://localhost:8000';
+    }
+    return 'http://10.0.2.2:8000';
+  }
 
   // Endpoints
   static const String garmentsUpload = '/api/v1/garments/upload';

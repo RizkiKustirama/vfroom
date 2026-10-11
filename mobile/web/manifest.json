@@ -1,0 +1,23 @@
+{
+  "name": "VYRO FitWardrobe AI",
+  "short_name": "VYRO",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#121318",
+  "theme_color": "#FF6B4A",
+  "description": "Personal AI Virtual Try-On and Wardrobe Stylist",
+  "orientation": "portrait-primary",
+  "prefer_related_applications": false,
+  "icons": [
+    {
+      "src": "icons/Icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/Icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
