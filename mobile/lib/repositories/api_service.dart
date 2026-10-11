@@ -2,7 +2,6 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import '../core/constants/api_constants.dart';
 import '../models/garment_item.dart';
-import '../models/avatar_model.dart';
 
 class ApiService {
   final Dio _dio;
