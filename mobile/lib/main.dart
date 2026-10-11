@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'core/constants/app_colors.dart';
+import 'screens/onboarding_screen.dart';
+import 'screens/stylist_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -27,19 +29,32 @@ class FitWardrobeApp extends StatelessWidget {
           primary: AppColors.primaryOrange,
         ),
       ),
-      home: const Scaffold(
-        body: Center(
-          child: Text(
-            'VYRO / FitWardrobe AI\nPhase 0 Initialized',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              color: AppColors.primaryOrange,
-            ),
-          ),
-        ),
-      ),
+      home: const RootNavigator(),
     );
+  }
+}
+
+class RootNavigator extends StatefulWidget {
+  const RootNavigator({super.key});
+
+  @override
+  State<RootNavigator> createState() => _RootNavigatorState();
+}
+
+class _RootNavigatorState extends State<RootNavigator> {
+  bool _isOnboarded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_isOnboarded) {
+      return OnboardingScreen(
+        onGetStarted: () {
+          setState(() {
+            _isOnboarded = true;
+          });
+        },
+      );
+    }
+    return const StylistScreen();
   }
 }
