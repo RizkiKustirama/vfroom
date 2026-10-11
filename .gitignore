@@ -14,8 +14,8 @@ dist/
 downloads/
 eggs/
 # Python Distribution
-code/backend/lib/
-code/backend/lib64/
+backend/lib/
+backend/lib64/
 sdist/
 var/
 wheels/

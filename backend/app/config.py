@@ -11,7 +11,7 @@ class Settings(BaseSettings):
 
     DATABASE_URL: str = "postgresql://postgres:postgres@localhost:5432/vfroom"
     STORAGE_BACKEND: str = "local"
-    STORAGE_LOCAL_ROOT: str = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "storage"))
+    STORAGE_LOCAL_ROOT: str = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "storage"))
 
     ENABLE_GPU: bool = False
     DEVICE: str = "cpu"
