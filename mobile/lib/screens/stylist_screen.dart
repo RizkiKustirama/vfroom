@@ -1,4 +1,3 @@
-import 'dart:math' as math;
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -24,13 +23,43 @@ class _StylistScreenState extends ConsumerState<StylistScreen> {
   int _selectedCategoryIndex = 0;
   final List<String> _categories = ['All', 'Atasan', 'Bawahan', 'Outer', 'Sepatu', 'Aksesoris'];
 
-  double _rotationAngle = 0.0;
   String _currentPoseName = "Front Standing";
+  bool _isFlippedPose = false;
+  Uint8List? _activePoseImageBytes;
 
   @override
   void dispose() {
     _promptController.dispose();
     super.dispose();
+  }
+
+  Future<void> _changeBodyPhoto() async {
+    try {
+      final XFile? file = await _picker.pickImage(source: ImageSource.gallery);
+      if (file != null) {
+        final Uint8List bytes = await file.readAsBytes();
+        ref.read(avatarProvider.notifier).setAvatarImage(bytes);
+        setState(() {
+          _activePoseImageBytes = bytes;
+          _isFlippedPose = false;
+          _currentPoseName = "Front Standing";
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              backgroundColor: AppColors.primaryOrange,
+              content: Text('Foto model berhasil diperbarui: "${file.name}"! ✨'),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Gagal mengganti foto model: $e')),
+        );
+      }
+    }
   }
 
   Future<void> _uploadNewGarment() async {
@@ -51,7 +80,7 @@ class _StylistScreenState extends ConsumerState<StylistScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               backgroundColor: AppColors.primaryOrange,
-              content: Text('Baju "${file.name}" berhasil ditambahkan & dipasang ke model! ✨'),
+              content: Text('Baju "${file.name}" berhasil diunggah & dipasangkan ke model! ✨'),
             ),
           );
         }
@@ -65,36 +94,38 @@ class _StylistScreenState extends ConsumerState<StylistScreen> {
     }
   }
 
-  void _openPoseModal() {
+  void _openPoseModal(Uint8List? baseBytes) {
     showDialog(
       context: context,
       builder: (ctx) => PoseModal(
-        previewImageUrl: '',
-        onSave: () {
+        baseImageBytes: _activePoseImageBytes ?? baseBytes,
+        currentPoseName: _currentPoseName,
+        onSave: (newBytes, poseName, isFlipped) {
           Navigator.pop(ctx);
           setState(() {
-            _currentPoseName = "Walking Side Pose";
+            _currentPoseName = poseName;
+            _isFlippedPose = isFlipped;
+            if (newBytes != null) {
+              _activePoseImageBytes = newBytes;
+              ref.read(avatarProvider.notifier).setAvatarImage(newBytes);
+            }
           });
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
+            SnackBar(
               backgroundColor: AppColors.primaryOrange,
-              content: Text('Pose baru berhasil disimpan ke Avatar Library! ✨'),
+              content: Text('Pose berhasil diubah menjadi: "$poseName"! ✨'),
             ),
           );
         },
         onRegenerate: () {
-          Navigator.pop(ctx);
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Generating pose variasi seed baru... 🔄')),
+            const SnackBar(content: Text('Mengacak variasi pose baru... 🔄')),
           );
         },
         onDiscard: () {
           Navigator.pop(ctx);
-          setState(() {
-            _currentPoseName = "Front Standing";
-          });
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Pose sementara dibersihkan dari server / Discarded.')),
+            const SnackBar(content: Text('Pose sementara dibatalkan (Discarded).')),
           );
         },
       ),
@@ -157,9 +188,9 @@ class _StylistScreenState extends ConsumerState<StylistScreen> {
   Widget build(BuildContext context) {
     final avatarState = ref.watch(avatarProvider);
     final wardrobe = ref.watch(wardrobeProvider);
-    final hasAvatarPhoto = avatarState.imageBytes != null;
+    final currentAvatarBytes = _activePoseImageBytes ?? avatarState.imageBytes;
+    final hasAvatarPhoto = currentAvatarBytes != null;
 
-    // Filter catalog items
     final selectedCategory = _categories[_selectedCategoryIndex];
     final displayItems = selectedCategory == 'All'
         ? wardrobe.catalogGarments
@@ -208,214 +239,182 @@ class _StylistScreenState extends ConsumerState<StylistScreen> {
               ),
             ),
 
-            // Center Viewport: Avatar Model with Interactive 360 Rotation Arc & Layering
-            Expanded(
-              child: Center(
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    // Interactive 360 Arc Indicator (Drag to rotate in 3D!)
+            // Viewport Controls Bar: Ubah Pose, Ganti Foto, Reset
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 4.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // Ubah Pose Button
+                  GestureDetector(
+                    onTap: () => _openPoseModal(avatarState.imageBytes),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(9999),
+                        border: Border.all(color: AppColors.primaryOrange, width: 1.5),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.04),
+                            blurRadius: 8,
+                          ),
+                        ],
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text('💃', style: TextStyle(fontSize: 13)),
+                          SizedBox(width: 6),
+                          Text(
+                            'Ubah Pose',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.primaryOrange,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+
+                  // Ganti Foto Model Button
+                  GestureDetector(
+                    onTap: _changeBodyPhoto,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(9999),
+                        border: Border.all(color: AppColors.slateGrey.withOpacity(0.4)),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.camera_alt_outlined, size: 14, color: AppColors.slateGrey),
+                          SizedBox(width: 4),
+                          Text(
+                            'Ganti Foto',
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.slateGrey),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  // Reset Outfit Button if worn
+                  if (wardrobe.wornGarments.isNotEmpty) ...[
+                    const SizedBox(width: 8),
                     GestureDetector(
-                      onHorizontalDragUpdate: (details) {
-                        setState(() {
-                          _rotationAngle = (_rotationAngle + details.delta.dx * 0.8) % 360.0;
-                          if (_rotationAngle < 0) _rotationAngle += 360.0;
-                        });
+                      onTap: () {
+                        ref.read(wardrobeProvider.notifier).clearWorn();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Semua pakaian dilepas dari model.')),
+                        );
                       },
                       child: Container(
-                        width: 290,
-                        height: 200,
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
                         decoration: BoxDecoration(
-                          border: Border.all(
-                            color: AppColors.primaryOrange.withOpacity(0.4),
-                            width: 2,
-                            strokeAlign: BorderSide.strokeAlignCenter,
-                          ),
-                          borderRadius: BorderRadius.circular(145),
+                          color: Colors.redAccent.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(9999),
+                        ),
+                        child: const Text(
+                          'Lepas Baju ↺',
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.redAccent),
                         ),
                       ),
                     ),
+                  ],
+                ],
+              ),
+            ),
 
-                    // Avatar Model with 3D Rotation Transform & Z-Index Garment Overlay
-                    GestureDetector(
-                      onHorizontalDragUpdate: (details) {
-                        setState(() {
-                          _rotationAngle = (_rotationAngle + details.delta.dx * 0.8) % 360.0;
-                          if (_rotationAngle < 0) _rotationAngle += 360.0;
-                        });
-                      },
-                      child: Transform(
-                        transform: Matrix4.identity()
-                          ..setEntry(3, 2, 0.001)
-                          ..rotateY(_rotationAngle * math.pi / 180),
+            // Center Viewport: Clean, Crisp Avatar Model (No 360 distortion)
+            Expanded(
+              child: Center(
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.6),
+                    borderRadius: BorderRadius.circular(28),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.03),
+                        blurRadius: 20,
+                      ),
+                    ],
+                  ),
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      // Base Model Body with Natural Orientation (Supports clean pose flips)
+                      Transform(
                         alignment: Alignment.center,
-                        child: Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            // Base Model Body
-                            if (hasAvatarPhoto)
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(24),
+                        transform: Matrix4.identity()
+                          ..scale(_isFlippedPose ? -1.0 : 1.0, 1.0, 1.0),
+                        child: hasAvatarPhoto
+                            ? ClipRRect(
+                                borderRadius: BorderRadius.circular(20),
                                 child: Image.memory(
-                                  avatarState.imageBytes!,
-                                  height: 250,
+                                  currentAvatarBytes,
+                                  height: 270,
                                   fit: BoxFit.contain,
                                 ),
                               )
-                            else
-                              Image.asset(
+                            : Image.asset(
                                 'assets/images/body.png',
-                                height: 250,
+                                height: 270,
                                 fit: BoxFit.contain,
                                 errorBuilder: (_, __, ___) => Column(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
                                     Icon(
                                       Icons.accessibility_new_rounded,
-                                      size: 150,
+                                      size: 160,
                                       color: AppColors.primaryOrange.withOpacity(0.85),
                                     ),
                                     const SizedBox(height: 6),
                                     const Text(
-                                      'Model Default Standby',
+                                      'Model Standby',
                                       style: TextStyle(color: AppColors.lightTextSecondary, fontSize: 12),
                                     ),
                                   ],
                                 ),
                               ),
-
-                            // Layered Worn Garments (Z-Index Compositing Engine)
-                            ...wardrobe.wornGarments.map((g) {
-                              return Positioned(
-                                top: 50,
-                                child: Container(
-                                  padding: const EdgeInsets.all(4),
-                                  child: g.imageBytes != null
-                                      ? Image.memory(
-                                          g.imageBytes!,
-                                          height: 130,
-                                          fit: BoxFit.contain,
-                                        )
-                                      : Image.asset(
-                                          g.assetPath ?? 'assets/images/garment1.png',
-                                          height: 130,
-                                          color: g.tintColor != null ? g.tintColor!.withOpacity(0.4) : null,
-                                          colorBlendMode: g.tintColor != null ? BlendMode.srcATop : null,
-                                          fit: BoxFit.contain,
-                                          errorBuilder: (_, __, ___) => Icon(
-                                            Icons.dry_cleaning_rounded,
-                                            size: 90,
-                                            color: g.tintColor ?? AppColors.primaryOrange,
-                                          ),
-                                        ),
-                                ),
-                              );
-                            }).toList(),
-                          ],
-                        ),
                       ),
-                    ),
 
-                    // Top Status: Worn Count & Ubah Pose Button
-                    Positioned(
-                      top: 10,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          // Ubah Pose Button
-                          GestureDetector(
-                            onTap: _openPoseModal,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(9999),
-                                border: Border.all(color: AppColors.primaryOrange, width: 1.5),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.06),
-                                    blurRadius: 10,
-                                  ),
-                                ],
-                              ),
-                              child: const Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text('💃', style: TextStyle(fontSize: 13)),
-                                  SizedBox(width: 6),
-                                  Text(
-                                    'Ubah Pose',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                      color: AppColors.primaryOrange,
+                      // Layered Worn Garments (Z-Index Compositing Engine)
+                      ...wardrobe.wornGarments.map((g) {
+                        return Positioned(
+                          top: 45,
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            child: g.imageBytes != null
+                                ? Image.memory(
+                                    g.imageBytes!,
+                                    height: 140,
+                                    fit: BoxFit.contain,
+                                  )
+                                : Image.asset(
+                                    g.assetPath ?? 'assets/images/garment1.png',
+                                    height: 140,
+                                    color: g.tintColor != null ? g.tintColor!.withOpacity(0.4) : null,
+                                    colorBlendMode: g.tintColor != null ? BlendMode.srcATop : null,
+                                    fit: BoxFit.contain,
+                                    errorBuilder: (_, __, ___) => Icon(
+                                      Icons.dry_cleaning_rounded,
+                                      size: 100,
+                                      color: g.tintColor ?? AppColors.primaryOrange,
                                     ),
                                   ),
-                                ],
-                              ),
-                            ),
                           ),
-                          if (wardrobe.wornGarments.isNotEmpty) ...[
-                            const SizedBox(width: 8),
-                            GestureDetector(
-                              onTap: () {
-                                ref.read(wardrobeProvider.notifier).clearWorn();
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Semua pakaian dilepas dari model.')),
-                                );
-                              },
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                                decoration: BoxDecoration(
-                                  color: Colors.redAccent.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(9999),
-                                ),
-                                child: const Text(
-                                  'Reset 🔄',
-                                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.redAccent),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-
-                    // Interactive 360 Degree Drag Label Pill
-                    Positioned(
-                      bottom: 8,
-                      child: GestureDetector(
-                        onHorizontalDragUpdate: (details) {
-                          setState(() {
-                            _rotationAngle = (_rotationAngle + details.delta.dx * 0.8) % 360.0;
-                            if (_rotationAngle < 0) _rotationAngle += 360.0;
-                          });
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(9999),
-                            border: Border.all(color: AppColors.primaryOrange.withOpacity(0.2)),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.06),
-                                blurRadius: 10,
-                              ),
-                            ],
-                          ),
-                          child: Text(
-                            '< ${_rotationAngle.toInt()}° (Drag Putar) >',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.primaryOrange,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
+                        );
+                      }).toList(),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -428,7 +427,7 @@ class _StylistScreenState extends ConsumerState<StylistScreen> {
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 children: [
-                  // Add New Garment Button
+                  // Upload Garment Button
                   GestureDetector(
                     onTap: _uploadNewGarment,
                     child: Container(
@@ -466,7 +465,6 @@ class _StylistScreenState extends ConsumerState<StylistScreen> {
                         );
                       },
                       onLongPress: () {
-                        // Buka Detail Item Screen untuk kostumisasi warna
                         Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -559,7 +557,6 @@ class _StylistScreenState extends ConsumerState<StylistScreen> {
                 onAttachmentTap: _uploadNewGarment,
                 onGenerate: () {
                   final text = _promptController.text.trim();
-                  // AI matching recommendation simulation
                   final nexus = wardrobe.catalogGarments.firstWhere((g) => g.id == 'nexus-jacket');
                   ref.read(wardrobeProvider.notifier).wearGarmentWithColor(nexus, AppColors.sunsetCoral);
 
