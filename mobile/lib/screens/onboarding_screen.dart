@@ -93,7 +93,47 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   ),
                   IconButton(
                     icon: const Icon(Icons.menu, color: Colors.white),
-                    onPressed: () {},
+                    onPressed: () {
+                      showModalBottomSheet(
+                        context: context,
+                        backgroundColor: AppColors.darkBackground,
+                        shape: const RoundedRectangleBorder(
+                          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+                        ),
+                        builder: (ctx) => Padding(
+                          padding: const EdgeInsets.all(24.0),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Tentang VYRO FitWardrobe AI',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              const Text(
+                                'Aplikasi Personal Virtual Try-On bertenaga AI Zero-Shot. '
+                                'Upload foto model badan Anda, daftarkan koleksi baju dari kamera HP, '
+                                'dan coba padu-padan OOTD seketika dengan Z-Index layering.',
+                                style: TextStyle(color: AppColors.darkTextSecondary, fontSize: 13, height: 1.5),
+                              ),
+                              const SizedBox(height: 20),
+                              ListTile(
+                                leading: const Icon(Icons.bolt, color: AppColors.primaryOrange),
+                                title: const Text('Zero-Training AI Engine', style: TextStyle(color: Colors.white, fontSize: 14)),
+                                subtitle: const Text('RMBG-1.4 + MediaPipe + CatVTON', style: TextStyle(color: AppColors.darkTextSecondary, fontSize: 12)),
+                                contentPadding: EdgeInsets.zero,
+                              ),
+                              const SizedBox(height: 10),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
                   ),
                 ],
               ),
